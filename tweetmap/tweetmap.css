@@ -1,0 +1,11 @@
+.map {
+  height: calc(100vh - 85px);
+}
+
+#header {
+  background-color: lightskyblue;
+}
+
+#heading {
+  margin-top: 10px
+}
