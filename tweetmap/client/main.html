@@ -1,0 +1,39 @@
+<head>
+  <title>2016 US Presidential Candidates TweetMap</title>
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div id="header" class="row">
+      <h3 id="heading" class="text-center">2016 United States Presidential Candidates Recent Tweets TweetMap</h3>
+      <div class="col-md-8">
+        <select placeholder="Search for or select a candidate...">
+          <option value="">Select a candidate...</option>
+          <option value="all">All Candidates</option>
+          <optgroup label="Democratic">
+            <option value="Hillary Clinton">Hillary Clinton</option>
+            <option value="Bernie Sanders">Bernie Sanders</option>
+          </optgroup>
+          <optgroup label="Republican">
+            <option value="Ben Carson">Ben Carson</option>
+            <option value="Ted Cruz">Ted Cruz</option>
+            <option value="John Kasich">John Kasich</option>
+            <option value="Marco Rubio">Marco Rubio</option>
+            <option value="Donald Trump">Donald Trump</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <input type="text" class="form-control" id="distance" placeholder="Enter integer distance in kilometers (default is 1000km)">
+      </div>
+    </div>
+    <div class="row">
+      <div class="map">
+        {{> googleMap name="tweetMap" options=mapOptions}}
+      </div>
+      <div id="legend">
+        <h3>Legend</h3>
+      </div>
+    </div>
+  </div>
+</body>

@@ -1,6 +1,8 @@
 var Twit = require('twit');
 var elasticsearch = require('elasticsearch');
 var moment = require('moment');
+var AlchemyAPI = require('./alchemyapi');
+var alchemyapi = new AlchemyAPI();
 
 var T = new Twit({
   consumer_key: 'consumer_key',
@@ -11,6 +13,12 @@ var T = new Twit({
 
 var client = new elasticsearch.Client({
   host: 'elasticsearch_host',
+  connectionClass: require('http-aws-es'),
+  amazonES: {
+    region: 'aws_region',
+    accessKey: 'accessKey',
+    secretKey: 'secretKey'
+  },
   log: 'trace'
 });
 
@@ -29,8 +37,12 @@ client.indices.exists({
               date: {
                 type: 'date'
               },
-              position: {
-                type: 'geo_point'
+              coordinates: {
+                properties: {
+                  coordinates: {
+                    type: 'geo_point'
+                  }
+                }
               }
             }
           }
@@ -48,18 +60,20 @@ var stream = T.stream('statuses/filter', { track: ['Hillary Clinton', 'Bernie Sa
                                                     'Ben Carson', 'Ted Cruz', 'John Kasich', 'Marco Rubio', 'Donald Trump'] });
 
 stream.on('tweet', function(tweet) {
-  if (tweet.coordinates) {
-    tweet.position = tweet.coordinates.coordinates;
+  if (tweet.coordinates && tweet.lang === 'en') {
     tweet.date = moment(tweet.created_at, 'ddd MMM DD HH:mm:ss ZZ YYYY', 'en').valueOf();
-    client.index({
-      index: 'candidatetweets',
-      type: 'tweet',
-      id: tweet.id_str,
-      body: tweet
-    }, function(error) {
-      if (error) {
-        console.error(error.message);
-      }
+    alchemyapi.sentiment('text', tweet.text, {}, function(response) {
+      tweet.sentiment = response.docSentiment.type;
+      client.index({
+        index: 'candidatetweets',
+        type: 'tweet',
+        id: tweet.id_str,
+        body: tweet
+      }, function(error) {
+        if (error) {
+          console.log(error.message);
+        }
+      });
     });
   }
 });
