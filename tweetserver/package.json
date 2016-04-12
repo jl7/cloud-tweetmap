@@ -1,0 +1,10 @@
+{
+  "name": "tweetserver",
+  "private": true,
+  "dependencies": {
+    "elasticsearch": "*",
+    "http-aws-es": "*",
+    "moment": "*",
+    "twit": "*"
+  }
+}

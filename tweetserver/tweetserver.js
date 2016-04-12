@@ -63,17 +63,19 @@ stream.on('tweet', function(tweet) {
   if (tweet.coordinates && tweet.lang === 'en') {
     tweet.date = moment(tweet.created_at, 'ddd MMM DD HH:mm:ss ZZ YYYY', 'en').valueOf();
     alchemyapi.sentiment('text', tweet.text, {}, function(response) {
-      tweet.sentiment = response.docSentiment.type;
-      client.index({
-        index: 'candidatetweets',
-        type: 'tweet',
-        id: tweet.id_str,
-        body: tweet
-      }, function(error) {
-        if (error) {
-          console.log(error.message);
-        }
-      });
+      if (response.status === 'OK') {
+        tweet.sentiment = response.docSentiment.type;
+        client.index({
+          index: 'candidatetweets',
+          type: 'tweet',
+          id: tweet.id_str,
+          body: tweet
+        }, function(error) {
+          if (error) {
+            console.log(error.message);
+          }
+        });
+      }
     });
   }
 });
