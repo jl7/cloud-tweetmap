@@ -1,0 +1,9 @@
+{
+  "name": "tweetprocessor",
+  "private": true,
+  "dependencies": {
+    "aws-sdk": "*",
+    "moment": "*",
+    "sqs-consumer": "*"
+  }
+}

@@ -4,14 +4,25 @@ import { Tracker } from 'meteor/tracker';
 import { Session } from 'meteor/session';
 import { Geolocation } from 'meteor/mdg:geolocation';
 import { GoogleMaps } from 'meteor/dburles:google-maps';
+import { sAlert } from 'meteor/juliancwirko:s-alert';
 
 import { Tweets } from '../imports/api/tweets.js';
 
 import './main.html';
 
-Meteor.subscribe('tweets');
+Meteor.subscribe('tweets', () => {
+  let initializing = true;
+  Tweets.find({}).observeChanges({
+    added() {
+      if (!initializing) {
+        sAlert.info('New tweets available!', {effect: 'stackslide', offset: '85px'});
+      }
+    }
+  });
+  initializing = false;
+});
 Meteor.startup(() => {
-  GoogleMaps.load({key: 'api_key'});
+  GoogleMaps.load({key: 'GOOGLE_MAPS_API_KEY'});
   $('select').selectize({
     dropdownParent: 'body',
     onItemAdd(value, $item) {
@@ -130,7 +141,7 @@ function deleteMarkers() {
 function getDistance() {
   let distance = $('#distance').val();
   if (distance) {
-    if($.isNumeric(distance) && Math.floor(distance) == distance) {
+    if ($.isNumeric(distance) && Math.floor(distance) == distance) {
       return distance+'km';
     }
   }

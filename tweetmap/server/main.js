@@ -2,6 +2,7 @@ import { Meteor } from 'meteor/meteor';
 import { Mongo } from 'meteor/mongo';
 import { check } from 'meteor/check';
 import { Async } from 'meteor/meteorhacks:async';
+import { Router } from 'meteor/iron:router';
 
 import { Tweets } from '../imports/api/tweets.js';
 
@@ -10,16 +11,59 @@ Meteor.publish('tweets', function tweetsPublication() {
 });
 Meteor.startup(() => {
   let elasticsearch = require('elasticsearch');
+  let AWS = require('aws-sdk');
+  let credentials = new AWS.SharedIniFileCredentials();
   let client = new elasticsearch.Client({
-    host: 'elasticsearch_host',
+    host: 'AWS_ELASTICSEARCH_HOST',
     connectionClass: require('http-aws-es'),
     amazonES: {
-      region: 'aws_region',
-      accessKey: 'accessKey',
-      secretKey: 'secretKey'
+      region: 'REGION',
+      credentials: credentials
     },
     log: 'trace'
   });
+  let sns = new AWS.SNS({region: 'REGION'});
+  let MessageValidator = require('./sns-validator');
+  let validator = new MessageValidator();
+  validator.encoding = 'utf8';
+
+  Router.route('/notify', function() {
+    let req = this.request;
+    let res = this.response;
+    if (req.method === 'POST' && 'x-amz-sns-message-type' in req.headers) {
+      validator.validate(JSON.parse(this.request.body), (err, message) => {
+        if (err) {
+          console.log(err.message);
+          res.statusCode = 403;
+          res.end('Invalid message\n');
+        } else if (message['Type'] === 'SubscriptionConfirmation') {
+          sns.confirmSubscription({
+            Token: message['Token'],
+            TopicArn: message['TopicArn']
+          }, (err, data) => {
+            if (err) {
+              console.log(err.message);
+            }
+            else {
+              console.log(data);
+            }
+          });
+        } else if (message['Type'] === 'Notification') {
+          let tweet = JSON.parse(message['Message']);
+          Meteor.call('indexTweet', tweet, (err) => {
+            if (err) {
+              console.log(err.message);
+            }
+          });
+        }
+      });
+      res.statusCode = 200;
+      res.end('Received SNS message\n');
+    } else {
+      res.statusCode = 400;
+      res.end('Bad request\n');
+    }
+  }, {where: 'server', onBeforeAction: Iron.Router.bodyParser.text()});
 
   Meteor.methods({
     'searchAll'() {
@@ -35,16 +79,16 @@ Meteor.startup(() => {
         }
       }, Meteor.bindEnvironment((error, response) => {
         if (error) {
-          console.log(error.message);
+          throw error;
         } else {
-          let tweets = response.hits.hits;
-          tweets.forEach((tweet) => {
-            if (!Tweets.findOne(tweet._id)) {
-              Tweets.insert(tweet);
+          let hits = response.hits.hits;
+          hits.forEach((hit) => {
+            if (!Tweets.findOne(hit._id)) {
+              Tweets.insert(hit);
             }
           });
         }
-      }, (err) => { console.log(err.message); }));
+      }, (err) => { throw err; }));
     },
     'searchFor'(query) {
       check(query, String);
@@ -61,17 +105,17 @@ Meteor.startup(() => {
         });
       });
       if (response.error) {
-        console.log(response.error.message);
+        throw response.error;
       } else {
-        let tweetIds = [];
-        let tweets = response.result.hits.hits;
-        tweets.forEach((tweet) => {
-          tweetIds.push(tweet._id);
-          if (!Tweets.findOne(tweet._id)) {
-            Tweets.insert(tweet);
+        let ids = [];
+        let hits = response.result.hits.hits;
+        hits.forEach((hit) => {
+          ids.push(hit._id);
+          if (!Tweets.findOne(hit._id)) {
+            Tweets.insert(hit);
           }
         });
-        return tweetIds;
+        return ids;
       }
     },
     'searchFrom'(latLng, distance) {
@@ -104,18 +148,42 @@ Meteor.startup(() => {
         });
       });
       if (response.error) {
-        console.log(response.error.message);
+        throw response.error;
       } else {
-        let tweetIds = [];
-        let tweets = response.result.hits.hits;
-        tweets.forEach((tweet) => {
-          tweetIds.push(tweet._id);
-          if (!Tweets.findOne(tweet._id)) {
-            Tweets.insert(tweet);
+        let ids = [];
+        let hits = response.result.hits.hits;
+        hits.forEach((hit) => {
+          ids.push(hit._id);
+          if (!Tweets.findOne(hit._id)) {
+            Tweets.insert(hit);
           }
         });
-        return tweetIds;
+        return ids;
       }
+    },
+    'indexTweet'(tweet) {
+      client.index({
+        index: 'candidatetweets',
+        type: 'tweet',
+        id: tweet.id_str,
+        body: tweet
+      }, Meteor.bindEnvironment((error) => {
+        if (error) {
+          throw error;
+        } else {
+          client.get({
+            index: 'candidatetweets',
+            type: 'tweet',
+            id: tweet.id_str,
+          }, Meteor.bindEnvironment((error, response) => {
+            if (error) {
+              throw error;
+            } else {
+              Tweets.insert(response);
+            }
+          }, (err) => { throw err; }));
+        }
+      }, (err) => { throw err; }));
     }
   });
 });

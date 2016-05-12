@@ -22,3 +22,6 @@ session
 twbs:bootstrap
 chhib:selectize-bootstrap-3
 meteorhacks:async
+iron:router
+juliancwirko:s-alert
+juliancwirko:s-alert-stackslide

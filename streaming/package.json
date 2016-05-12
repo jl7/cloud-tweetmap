@@ -1,0 +1,8 @@
+{
+  "name": "tweetstream",
+  "private": true,
+  "dependencies": {
+    "aws-sdk": "*",
+    "twit": "*"
+  }
+}
